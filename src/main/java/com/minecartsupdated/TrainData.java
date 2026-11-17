@@ -2,10 +2,12 @@ package com.minecartsupdated;
 
 import com.mojang.serialization.Codec;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.saveddata.SavedDataType;
 
 import java.util.ArrayList;
+import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -13,7 +15,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-final class TrainData extends SavedData {
+public final class TrainData extends SavedData {
 	private static final Codec<TrainData> CODEC = Codec.STRING.listOf().xmap(TrainData::new, TrainData::encode);
 	private static final SavedDataType<TrainData> TYPE = new SavedDataType<>(MinecartsUpdated.id("train_links"), TrainData::new, CODEC, null);
 	private final Map<UUID, Set<UUID>> links = new HashMap<>();
@@ -43,6 +45,21 @@ final class TrainData extends SavedData {
 
 	boolean connected(UUID first, UUID second) {
 		return neighbors(first).contains(second);
+	}
+
+	public static boolean sameTrain(ServerLevel level, UUID first, UUID second) {
+		if (first.equals(second)) return false;
+		TrainData data = get(level.getServer());
+		Set<UUID> visited = new HashSet<>();
+		ArrayDeque<UUID> queue = new ArrayDeque<>();
+		queue.add(first);
+		while (!queue.isEmpty()) {
+			UUID current = queue.remove();
+			if (!visited.add(current)) continue;
+			if (current.equals(second)) return true;
+			queue.addAll(data.neighbors(current));
+		}
+		return false;
 	}
 
 	void link(UUID first, UUID second) {

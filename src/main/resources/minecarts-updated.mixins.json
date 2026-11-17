@@ -1,0 +1,11 @@
+{
+	"required": true,
+	"package": "com.minecartsupdated.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"mixins": [
+		"AbstractMinecartMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

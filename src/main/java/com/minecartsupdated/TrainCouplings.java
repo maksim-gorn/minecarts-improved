@@ -16,6 +16,7 @@ import net.minecraft.world.level.block.BaseRailBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.RailShape;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.network.chat.Component;
 
 import java.util.ArrayDeque;
 import java.util.HashSet;
@@ -36,13 +37,15 @@ final class TrainCouplings {
 			data.unlinkAll(cart.getUUID());
 			for (int i = 0; i < links.size(); i++) cart.spawnAtLocation(serverLevel, Items.IRON_CHAIN);
 			player.getItemInHand(hand).hurtAndBreak(1, player, hand.asEquipmentSlot());
+			notify(player, "Вагонетка отцеплена.");
 			return InteractionResult.SUCCESS;
 		}
 		if (!player.getItemInHand(hand).is(Items.IRON_CHAIN)) return InteractionResult.PASS;
-		if (!onRail(serverLevel, cart.blockPosition())) return InteractionResult.FAIL;
+		if (!onRail(serverLevel, cart.blockPosition())) return reject(player, "Вагонетка должна стоять на рельсах.");
 		UUID pending = PENDING.get(player.getUUID());
 		if (pending == null) {
 			PENDING.put(player.getUUID(), cart.getUUID());
+			notify(player, "Цепь выбрана. Нажмите по второй вагонетке.");
 			return InteractionResult.SUCCESS;
 		}
 		if (pending.equals(cart.getUUID())) {
@@ -51,11 +54,23 @@ final class TrainCouplings {
 		}
 		AbstractMinecart other = serverLevel.getEntity(pending) instanceof AbstractMinecart selected ? selected : null;
 		PENDING.remove(player.getUUID());
-		if (other == null || !other.isAlive() || !onRail(serverLevel, other.blockPosition()) || cart.distanceToSqr(other) > MAX_LINK_DISTANCE_SQUARED || !sameRailPath(serverLevel, cart.blockPosition(), other.blockPosition())) return InteractionResult.FAIL;
-		if (data.connected(cart.getUUID(), other.getUUID()) || data.neighbors(cart.getUUID()).size() >= 2 || data.neighbors(other.getUUID()).size() >= 2 || wouldLoop(data, cart.getUUID(), other.getUUID())) return InteractionResult.FAIL;
+		if (other == null || !other.isAlive() || !onRail(serverLevel, other.blockPosition())) return reject(player, "Обе вагонетки должны стоять на рельсах.");
+		if (cart.distanceToSqr(other) > MAX_LINK_DISTANCE_SQUARED) return reject(player, "Вагонетки слишком далеко друг от друга.");
+		if (!sameRailPath(serverLevel, cart.blockPosition(), other.blockPosition())) return reject(player, "Вагонетки должны быть на одном непрерывном пути.");
+		if (data.connected(cart.getUUID(), other.getUUID()) || data.neighbors(cart.getUUID()).size() >= 2 || data.neighbors(other.getUUID()).size() >= 2 || wouldLoop(data, cart.getUUID(), other.getUUID())) return reject(player, "Эти вагонетки нельзя соединить.");
 		data.link(cart.getUUID(), other.getUUID());
 		if (!player.getAbilities().instabuild) player.getItemInHand(hand).shrink(1);
+		notify(player, "Вагонетки сцеплены.");
 		return InteractionResult.SUCCESS;
+	}
+
+	private static InteractionResult reject(Player player, String message) {
+		notify(player, message);
+		return InteractionResult.FAIL;
+	}
+
+	private static void notify(Player player, String message) {
+		if (player instanceof ServerPlayer serverPlayer) serverPlayer.sendOverlayMessage(Component.literal(message));
 	}
 
 	private static boolean wouldLoop(TrainData data, java.util.UUID start, java.util.UUID goal) {
