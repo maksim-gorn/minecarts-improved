@@ -25,7 +25,7 @@ import java.util.Map;
 import java.util.UUID;
 
 final class TrainCouplings {
-	private static final double MAX_LINK_DISTANCE_SQUARED = 9.0;
+	private static final double MAX_LINK_GAP_SQUARED = 1.0;
 	private static final Map<UUID, UUID> PENDING = new java.util.concurrent.ConcurrentHashMap<>();
 
 	static InteractionResult interact(Player player, Level level, InteractionHand hand, Entity target, net.minecraft.world.phys.EntityHitResult hit) {
@@ -55,7 +55,7 @@ final class TrainCouplings {
 		AbstractMinecart other = serverLevel.getEntity(pending) instanceof AbstractMinecart selected ? selected : null;
 		PENDING.remove(player.getUUID());
 		if (other == null || !other.isAlive() || !onRail(serverLevel, other.blockPosition())) return reject(player, "Обе вагонетки должны стоять на рельсах.");
-		if (cart.distanceToSqr(other) > MAX_LINK_DISTANCE_SQUARED) return reject(player, "Вагонетки слишком далеко друг от друга.");
+		if (boundaryGapSquared(cart, other) > MAX_LINK_GAP_SQUARED) return reject(player, "Между вагонетками должно быть не больше одного блока.");
 		if (!sameRailPath(serverLevel, cart.blockPosition(), other.blockPosition())) return reject(player, "Вагонетки должны быть на одном непрерывном пути.");
 		if (data.connected(cart.getUUID(), other.getUUID()) || data.neighbors(cart.getUUID()).size() >= 2 || data.neighbors(other.getUUID()).size() >= 2 || wouldLoop(data, cart.getUUID(), other.getUUID())) return reject(player, "Эти вагонетки нельзя соединить.");
 		data.link(cart.getUUID(), other.getUUID());
@@ -88,6 +88,15 @@ final class TrainCouplings {
 
 	private static boolean onRail(ServerLevel level, BlockPos pos) {
 		return BaseRailBlock.isRail(level.getBlockState(pos)) || BaseRailBlock.isRail(level.getBlockState(pos.below()));
+	}
+
+	private static double boundaryGapSquared(AbstractMinecart first, AbstractMinecart second) {
+		var a = first.getBoundingBox();
+		var b = second.getBoundingBox();
+		double x = Math.max(0.0, Math.max(a.minX - b.maxX, b.minX - a.maxX));
+		double y = Math.max(0.0, Math.max(a.minY - b.maxY, b.minY - a.maxY));
+		double z = Math.max(0.0, Math.max(a.minZ - b.maxZ, b.minZ - a.maxZ));
+		return x * x + y * y + z * z;
 	}
 
 	private static boolean sameRailPath(ServerLevel level, BlockPos first, BlockPos second) {

@@ -62,7 +62,18 @@ public final class TrainData extends SavedData {
 		return false;
 	}
 
+	public static int unlinkDestroyedCart(ServerLevel level, UUID cart) {
+		TrainData data = get(level.getServer());
+		int count = data.neighbors(cart).size();
+		data.unlinkAll(cart);
+		TrainMovement.forget(cart);
+		return count;
+	}
+
 	void link(UUID first, UUID second) {
+		Set<UUID> affected = component(first);
+		affected.addAll(component(second));
+		TrainMovement.forget(affected);
 		add(first, second);
 		setDirty();
 	}
@@ -73,8 +84,21 @@ public final class TrainData extends SavedData {
 	}
 
 	void unlinkAll(UUID cart) {
+		Set<UUID> affected = component(cart);
 		for (UUID neighbor : Set.copyOf(neighbors(cart))) remove(cart, neighbor);
+		TrainMovement.forget(affected);
 		setDirty();
+	}
+
+	private Set<UUID> component(UUID start) {
+		Set<UUID> result = new HashSet<>();
+		ArrayDeque<UUID> queue = new ArrayDeque<>();
+		queue.add(start);
+		while (!queue.isEmpty()) {
+			UUID current = queue.remove();
+			if (result.add(current)) queue.addAll(neighbors(current));
+		}
+		return result;
 	}
 
 	private void add(UUID first, UUID second) {

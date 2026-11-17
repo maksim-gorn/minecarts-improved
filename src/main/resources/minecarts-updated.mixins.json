@@ -3,7 +3,8 @@
 	"package": "com.minecartsupdated.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"mixins": [
-		"AbstractMinecartMixin"
+		"AbstractMinecartMixin",
+		"EntityRemovalMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
